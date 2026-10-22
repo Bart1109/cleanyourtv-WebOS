@@ -303,6 +303,28 @@ Switching restarts the TV (about a minute).
 
 While LG's Home is selected, the service still runs, so the manager app and the Input key work.
 
+## Native launcher (experimental)
+
+The package also installs **CleanYourTV Native**, a second app with the same home screen written in C on SDL2 instead of
+HTML. By default it runs next to the web launcher and does not replace it.
+
+| | |
+|---|---|
+| Open it | **CleanYourTV Native** in LG's app list (or the grid) |
+| Same as the web launcher | dock, grid, top buttons, ambient glow, clock, Inputs list, hold OK for app options, Customise (top buttons, hidden apps, order, clock, reset), the **LG Home** tile, the TV's language |
+| Different | **Live TV** opens the web launcher's Live TV, which does the playback. Settings are shared: both read and write `config.json` through the service |
+| As LG's Home | `sh /media/developer/cleanyourtv/native-home.sh on` over SSH (restarts the TV's app manager); `sh /media/developer/cleanyourtv/native-home.sh off` returns to the web launcher. The choice survives reboots (the file `NATIVE` next to `config.json`) and is skipped when the program is missing or its libraries are not found. Switching to LG's Home (`undo-home.sh`) works as before |
+
+It reads the same service API as the web launcher (`/api/apps`, `/api/launch`, `/api/config`, `/api/inputs`, `/icon/<id>`),
+draws with the TV's own SDL2, SDL2_ttf and SDL2_image and LG Smart UI font, and draws nothing while nothing moves. The app
+list and icons are cached in `/tmp` so the next start paints at once. It closes when another app takes over.
+
+Measured on an OLED65G26LA (webOS 25): first frame 0.35 s after launch, 43 to 65 MB resident, 0.3 % of one core while idle,
+about 50 frames per second while focus is moving. The remote's arrow keys reach it as key symbols 79 to 82 (LG's SDL puts the SDL scancode there), which it maps. Not yet confirmed: OK, Back and the Magic Remote pointer; every key press is logged in `/tmp/cytv-native.log`.
+
+Build: `native/build.sh` (needs [zig](https://ziglang.org), downloads and checks SDL2's headers). It writes `native/launcher`
+(32-bit ARM, the TV's userland), which `ipk/build.py` adds to the package.
+
 ## Service API
 
 The service runs as root on `127.0.0.1:8765` (JSON).
@@ -336,7 +358,7 @@ service version is `VERSION` in `helper/helper.js`; the launcher version is `app
 `app/index.html`.
 
 Layout: `app/` launcher, `manager/`, `picker/`, `notify/` apps, `helper/` service, `scripts/` boot, setup and
-restore scripts, `voice/` source of the speech program, `third-party/` bundled inputhook and QR library, `compat.json`, `install.sh`, `uninstall.sh`.
+restore scripts, `voice/` source of the speech program, `native/` the native launcher (source, build script, app files), `third-party/` bundled inputhook and QR library, `compat.json`, `install.sh`, `uninstall.sh`.
 
 ## Credits and licence
 

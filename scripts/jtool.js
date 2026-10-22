@@ -31,13 +31,14 @@ if (cmd === 'kind') {                       // kind <appinfo.json>  ->  "<id> <t
   wj(a[1], c);
 } else if (cmd === 'opt') {                 // opt <config.json> <name>  ->  1 or 0
   var oo = (rj(a[1], {}).options) || {}; console.log(oo[a[2]] === false ? 0 : 1);
-} else if (cmd === 'stage') {               // stage <stock home appinfo.json> <out>
+} else if (cmd === 'stage') {               // stage <stock home appinfo.json> <out> [native]
   var h = rj(a[1], {});
   if (h.type !== 'web' && h.type !== 'flutter') {   // another kind of Home app (native, QML): drop what only applies to that kind
     ['nativeLifeCycleInterfaceVersion', 'containerBasedApp', 'supportQuickStart', 'windowGroup', 'qmlIncludePath', 'qtModules'].forEach(function (k) { delete h[k]; });
   }
-  h.type = 'web'; h.main = 'index.html';
-  delete h.splashBackground; delete h.noSplashOnLaunch;
+  if (a[3] === 'native') { h.type = 'native'; h.main = 'bin/launcher'; delete h.nativeLifeCycleInterfaceVersion; delete h.supportQuickStart; h.spinnerOnLaunch = false; h.noSplashOnLaunch = true; }   // the native launcher does not register with the app manager (lifecycle interface 2 would wait for that)
+  else { h.type = 'web'; h.main = 'index.html'; }
+  delete h.splashBackground; if (a[3] !== 'native') delete h.noSplashOnLaunch;
   h.bgColor = '#000000'; h.transparent = false;
   fs.writeFileSync(a[2], JSON.stringify(h, null, 1));
 } else if (cmd === 'rmbind') {              // rmbind  ->  drop our Input-key bind from the inputhook's keybinds.json

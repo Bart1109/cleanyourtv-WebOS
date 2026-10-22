@@ -30,8 +30,14 @@ mount --bind $L/home-overlay $H && { (sleep 3; pkill -9 -f /usr/palm/application
 # Watchdog: if the helper stays unreachable for 60 s, fall back to stock Home until next reboot.
 (
   bad=0
+  nb=0
   while grep -q " $H " /proc/mounts; do
     sleep 10
+    # the native launcher as Home: if Home is in front but the program is not running for 40 s, go back to the web launcher
+    if [ -e $L/NATIVE ]; then
+      if luna-send -n 1 -w 3000 -f luna://com.webos.applicationManager/getForegroundAppInfo '{}' </dev/null 2>/dev/null | grep -q '"appId": "com.webos.app.home"' && ! pgrep -f "[a]pplications/com.webos.app.home/bin/launcher" >/dev/null; then nb=$((nb+1)); else nb=0; fi
+      [ $nb -ge 4 ] && { rm -f $L/NATIVE; sh $L/native-home.sh off; break; }
+    fi
     if curl -s -m 3 -o /dev/null http://127.0.0.1:8765/api/foreground; then bad=0; else
       pgrep -f cleanyourtv/helper.js >/dev/null || (nohup node $L/helper.js >/tmp/cleanyourtv-helper.log 2>&1 </dev/null &)
       bad=$((bad+1)); [ $bad -ge 6 ] && { sh $L/undo-home.sh temp; break; }

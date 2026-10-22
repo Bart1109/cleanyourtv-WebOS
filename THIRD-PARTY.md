@@ -25,6 +25,12 @@ license is in the frida-gum project). Anyone who received this package can ask f
 issue tracker, and we will provide it. The GPL-3.0 text is in `LICENSE-inputhookpp-GPL-3.0.txt`. This applies to
 that library only, not to the rest of this project.
 
+## Native launcher
+
+`native/launcher` (MIT, source in `native/launcher.c`) is built against the public headers of SDL2 2.0.14, SDL2_ttf 2.0.15
+and SDL2_image 2.0.5 (zlib license, downloaded and checked by `native/build.sh`; they are not stored in this repository).
+No SDL code is shipped: on the TV it uses the SDL2, SDL2_ttf, SDL2_image and font libraries that are part of LG's firmware.
+
 ## Voice (optional download)
 
 Nothing below is shipped in the package; the manager app downloads it on request (see README, Voice) and

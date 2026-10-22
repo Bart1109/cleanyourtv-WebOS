@@ -66,6 +66,15 @@ for app_id, src in (('com.cleanyourtv.manager', 'manager/app'), ('com.cleanyourt
             if n == 'appinfo.json' and app_id == PKG:   # the package version is the service version
                 o = json.loads(body); o['version'] = version; body = json.dumps(o).encode()
             add(data, '.' + d + '/' + rel, body)
+for n in sorted(os.listdir(P('native', 'app'))):   # the native launcher (optional, experimental): a 32-bit ARM program that uses the TV's own SDL2
+    add(data, './usr/palm/applications/com.cleanyourtv.native/' + n, open(P('native', 'app', n), 'rb').read())
+add(data, './usr/palm/applications/com.cleanyourtv.native/bin/launcher', open(P('native', 'launcher'), 'rb').read(), 0o755)
+# Live TV for the native launcher: the launcher page installed as its own, hidden app that opens straight on Live TV
+live = json.dumps({'id': 'com.cleanyourtv.live', 'version': version, 'vendor': 'cleanyourtv', 'type': 'web', 'main': 'index.html', 'title': 'Live TV', 'icon': 'icon.png', 'largeIcon': 'largeIcon.png',
+                   'noSplashOnLaunch': True, 'disableBackHistoryAPI': True, 'visible': False, 'class': {'hidden': True}, 'bgColor': '#000000'}).encode()
+add(data, './usr/palm/applications/com.cleanyourtv.live/appinfo.json', live)
+for n in ('index.html', 'icon.png', 'largeIcon.png'):
+    add(data, './usr/palm/applications/com.cleanyourtv.live/' + n, open(P('app', n), 'rb').read())
 add(data, './usr/palm/applications/com.cleanyourtv.manager/qrcode.js', open(P('third-party', 'qrcode-generator', 'qrcode.js'), 'rb').read())   # QR code for sharing the log
 s = '.' + '/usr/palm/services/' + SERVICE
 add(data, s + '/bootstrap.sh', open(P('scripts', 'bootstrap.sh'), 'rb').read(), 0o755)
