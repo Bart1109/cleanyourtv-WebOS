@@ -37,6 +37,9 @@ const srv = http.createServer(async (q, r) => {
   if (u.startsWith('/api/theme/')) return theme.handle(q, r, u, body);
   if (u === '/api/apps') return j({ apps: apps.map(a => ({ id: a.id, title: a.title })), config: { dock: apps.slice(0, 6).map(a => a.id), theme: theme.resolved() }, usage: Object.fromEntries(apps.map((a, i) => [a.id, 1000 - i])), version: '9.9.9' });
   if (u === '/api/inputs') return j({ devices: [{ hdmiPlugIn: true, label: 'Game console', port: 1, appId: 'hdmi1', activate: false }, { hdmiPlugIn: false, label: 'HDMI 2', port: 2, appId: 'hdmi2', activate: false }] });
+  // the launcher's own files: the scenes and the glass clock's typeface (effects.scenes, clock.style)
+  const sf = /^\/([\w-]{1,60}\.(?:jpg|webp|woff2))$/.exec(u);
+  if (sf && fs.existsSync(path.join(ROOT, 'app', sf[1]))) { r.writeHead(200, { 'content-type': { jpg: 'image/jpeg', webp: 'image/webp', woff2: 'font/woff2' }[sf[1].split('.').pop()] }); return r.end(fs.readFileSync(path.join(ROOT, 'app', sf[1]))); }
   const m = /^\/icon\/(app\.\d+)$/.exec(u), a = m && apps.find(x => x.id === m[1]);
   if (a) { r.writeHead(200, { 'content-type': 'image/svg+xml' }); return r.end(svg(a)); }
   j({ returnValue: true });
