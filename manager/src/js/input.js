@@ -48,7 +48,7 @@ function wantView() {
   if (p && p.open === 'wallpapers') openWallpapers();
   if (p && p.open === 'cards') {
     cardsFromHome = true;
-    openCardsPair();
+    openCards();
   }
 }
 document.addEventListener('webOSRelaunch', function () {

@@ -654,7 +654,15 @@ function customizeMenu() {
       { sep: true },
       { label: t('Theme'), stay: true, fn: themeMenu },
       /* only where the theme has slots for cards */
-      (TH.slots || []).length ? { label: t('Cards'), stay: true, fn: cardsMenu } : null,
+      (TH.slots || []).length
+        ? {
+            label: t('Cards'),
+            sub: t('in the CleanYourTV app'),
+            fn: function () {
+              launch('com.cleanyourtv.manager', { open: 'cards' });
+            },
+          }
+        : null,
       {
         label: t('Wallpapers'),
         sub: cfg.wall && cfg.wall.on ? t('On') : t('Off'),
