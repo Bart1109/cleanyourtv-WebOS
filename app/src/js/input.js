@@ -199,6 +199,7 @@ document.addEventListener('webOSRelaunch', function () {
   }
   if (LIVE.on) LIVE.exit();
   load();
+  refreshSoon();
   wantInputs();
 });
 document.addEventListener('visibilitychange', function () {
@@ -217,6 +218,7 @@ document.addEventListener('visibilitychange', function () {
     if (liveBlip && LIVE.on) LIVE.exit();
     liveBlip = false;
     load();
+    refreshSoon();
     WALL.shown();
   }
 });

@@ -25,14 +25,28 @@ function create(ctx) {
   let appCache = null,
     appCacheAt = 0,
     asking = null;
+  const uninstalledRecently = {};
+  function isRemovable(a) {
+    if (!a || !a.id || a.id === HOME || /^com\.cleanyourtv\./.test(a.id)) return false;
+    if (a.removable === true) return true;
+    if (a.removable === false || a.systemApp === true) return false;
+    if (a.folderPath && (a.folderPath.indexOf('/media/developer/apps') === 0 || a.folderPath.indexOf('/var/luna/user/data/apps') === 0))
+      return true;
+    if (a.folderPath && a.folderPath.indexOf('/usr/palm/applications') === 0) return false;
+    return false;
+  }
   function askApps() {
     if (!asking)
       asking = luna('luna://com.webos.applicationManager/listApps', {}).then(r => {
         asking = null;
         if (!Array.isArray(r.apps)) return appCache || [];
         appCache = r.apps
-          .filter(a => a.visible !== false && a.id !== HOME)
-          .map(a => ({ id: a.id, title: a.title, icon: a.largeIcon || a.icon, folder: a.folderPath, type: a.type }));
+          .filter(a => a.visible !== false && a.id !== HOME && !uninstalledRecently[a.id])
+          .map(a => {
+            const item = { id: a.id, title: a.title, icon: a.largeIcon || a.icon, folder: a.folderPath, type: a.type };
+            if (isRemovable(a)) item.removable = true;
+            return item;
+          });
         appCacheAt = Date.now();
         return appCache;
       });
@@ -41,7 +55,68 @@ function create(ctx) {
   async function installed() {
     if (!appCache) return askApps();
     if (Date.now() - appCacheAt > 5000) askApps();
-    return appCache;
+    return (appCache || []).filter(a => !uninstalledRecently[a.id]);
+  }
+
+  async function uninstallApp(id) {
+    // an app id: letters, digits, dots and dashes, never starting with a dot (a folder name with rm -rf behind it)
+    if (!id || typeof id !== 'string' || !/^[\w\-][\w.\-]*$/.test(id) || /^com\.cleanyourtv\./.test(id) || id === HOME) {
+      return { returnValue: false, error: 'refused' };
+    }
+    const all = await installed();
+    const a = all.find(x => x.id === id);
+    if (!a || !a.removable) {
+      return { returnValue: false, error: 'app not removable' };
+    }
+
+    try {
+      await luna('luna://com.webos.applicationManager/closeByAppId', { id });
+    } catch (_) {}
+
+    const isDev = a.folder && (a.folder.indexOf('/media/developer/apps') === 0 || a.folder.indexOf('/var/luna/user/data/apps') === 0);
+
+    let r = await luna(isDev ? 'luna://com.webos.appInstallService/dev/remove' : 'luna://com.webos.appInstallService/remove', {
+      id,
+      subscribe: false,
+    });
+    if (!r || r.returnValue !== true) {
+      r = await luna(isDev ? 'luna://com.webos.appInstallService/remove' : 'luna://com.webos.appInstallService/dev/remove', {
+        id,
+        subscribe: false,
+      });
+    }
+
+    // a failed removal changes nothing: the app stays on Home, in the dock and in the hidden list, and its files stay
+    if (!r || r.returnValue !== true) return { returnValue: false, error: (r && (r.errorText || r.error)) || 'could not uninstall' };
+
+    if (isDev && a.folder && a.folder.indexOf('/media/developer/apps') === 0) {
+      try {
+        const pkgDir = path.join('/media/developer/apps/usr/palm/packages', id);
+        const appDir = path.join('/media/developer/apps/usr/palm/applications', id);
+        if (fs.existsSync(pkgDir)) exec.execFile('rm', ['-rf', pkgDir], {}, () => {});
+        if (fs.existsSync(appDir)) exec.execFile('rm', ['-rf', appDir], {}, () => {});
+      } catch (_) {}
+    }
+
+    config.update('launcher', c => {
+      if (Array.isArray(c.dock) && c.dock.indexOf(id) >= 0) {
+        c.dock = c.dock.filter(x => x !== id);
+      }
+      if (Array.isArray(c.hidden) && c.hidden.indexOf(id) >= 0) {
+        c.hidden = c.hidden.filter(x => x !== id);
+      }
+    });
+
+    uninstalledRecently[id] = Date.now();
+    const now = Date.now();
+    for (const k in uninstalledRecently) {
+      if (now - uninstalledRecently[k] > 60000) delete uninstalledRecently[k];
+    }
+    if (Array.isArray(appCache)) {
+      appCache = appCache.filter(x => x.id !== id);
+    }
+    appCacheAt = Date.now();
+    return { returnValue: true, id };
   }
 
   // ---- the inputs, read like the apps: the last answer at once, asked again in the background when older than 5 seconds ----
@@ -220,6 +295,11 @@ function create(ctx) {
       saveLauncherConfig(await body(req));
       return web.json(res, { returnValue: true });
     }
+    if (u === '/api/apps/uninstall' && req.method === 'POST') {
+      const b = await body(req);
+      const out = await uninstallApp(b && b.id);
+      return web.json(res, out, out.returnValue ? 200 : 400);
+    }
     const m = u.match(/^\/icon\/([\w.\-]+)$/);
     if (m) {
       const a = (await apps()).find(x => x.id === m[1]);
@@ -233,7 +313,7 @@ function create(ctx) {
 
   return {
     name: 'apps',
-    paths: ['/api/apps', '/api/inputs', '/api/inputs/pin', '/api/foreground', '/api/launch', '/api/config'],
+    paths: ['/api/apps', '/api/inputs', '/api/inputs/pin', '/api/foreground', '/api/launch', '/api/config', '/api/apps/uninstall'],
     prefix: '/icon/',
     handle,
     start: () => setInterval(pollForeground, 4000),

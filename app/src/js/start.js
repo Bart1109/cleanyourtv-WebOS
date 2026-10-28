@@ -13,5 +13,6 @@ try {
   }
 } catch (e) {}
 load();
+refreshSoon();
 wantInputs();
 api('/api/frontend-ok', { version: VERSION }).catch(function () {}); // lets the manager know an updated launcher started

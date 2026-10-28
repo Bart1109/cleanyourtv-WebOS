@@ -419,7 +419,7 @@ function appMenu(a) {
           pinInput(a.id, a.title, false);
         },
       });
-    else
+    else {
       items.push({
         label: t('Hide app'),
         fn: function () {
@@ -427,8 +427,141 @@ function appMenu(a) {
           toast(t('%s is hidden. Customise > Hidden apps shows it again.').replace('%s', a.title));
         },
       });
+      if (a.removable)
+        items.push({
+          label: t('Uninstall'),
+          icon: 'trash',
+          fn: function () {
+            confirmUninstall(a);
+          },
+        });
+    }
     return items;
   });
+}
+
+function disintegrateApp(a, done) {
+  var el = tiles[a.id];
+  if (!el || !el.parentNode) {
+    if (done) done();
+    return;
+  }
+  var rect = el.getBoundingClientRect();
+  var col = el.style.getPropertyValue('--c') || '120, 140, 180';
+
+  el.classList.add('disintegrate-prep');
+
+  setTimeout(function () {
+    el.classList.remove('disintegrate-prep');
+    el.classList.add('disintegrate');
+
+    var box = document.createElement('div');
+    box.className = 'disintegrate-box';
+    box.style.left = Math.round(rect.left) + 'px';
+    box.style.top = Math.round(rect.top) + 'px';
+    box.style.width = Math.round(rect.width) + 'px';
+    box.style.height = Math.round(rect.height) + 'px';
+    document.body.appendChild(box);
+
+    var N = 10;
+    var particles = [];
+    for (var i = 0; i < N; i++) {
+      var p = document.createElement('span');
+      p.className = 'disintegrate-p';
+      var size = Math.floor(7 + Math.random() * 6);
+      p.style.width = size + 'px';
+      p.style.height = size + 'px';
+      p.style.background = i % 2 === 0 ? 'rgb(' + col + ')' : 'rgba(255, 255, 255, 0.85)';
+
+      var startX = rect.width / 2 - size / 2;
+      var startY = rect.height / 2 - size / 2;
+      p.style.left = Math.round(startX) + 'px';
+      p.style.top = Math.round(startY) + 'px';
+      box.appendChild(p);
+
+      var angle = (i / N) * 2 * Math.PI + (Math.random() - 0.5) * 0.4;
+      var dist = Math.round(65 + Math.random() * 65);
+      var dx = Math.round(Math.cos(angle) * dist);
+      var dy = Math.round(Math.sin(angle) * dist);
+      particles.push({ el: p, dx: dx, dy: dy });
+    }
+
+    /* force layout reflow so the browser commits the initial translate3d(0, 0, 0) */
+    void box.offsetHeight;
+
+    setTimeout(function () {
+      for (var j = 0; j < particles.length; j++) {
+        var pt = particles[j];
+        pt.el.style.transform = 'translate3d(' + pt.dx + 'px, ' + pt.dy + 'px, 0) scale(0)';
+        pt.el.style.opacity = '0';
+      }
+    }, 20);
+
+    setTimeout(function () {
+      box.remove();
+      if (el && el.parentNode) el.remove();
+      delete tiles[a.id];
+      if (done) done();
+    }, 400);
+  }, 50);
+}
+
+function confirmUninstall(a) {
+  openMenu(t('Uninstall %s?').replace('%s', a.title), [
+    {
+      label: t('Uninstall'),
+      icon: 'trash',
+      fn: function () {
+        closeMenus();
+        toast(t('Uninstalling %s...').replace('%s', a.title));
+        /* the tile goes only once the TV has removed the app; a failed removal leaves Home, the dock and the hidden list as they were */
+        api('/api/apps/uninstall', { id: a.id })
+          .then(
+            function (res) {
+              return res;
+            },
+            function () {
+              return { returnValue: false };
+            }
+          )
+          .then(function (res) {
+            if (!res || !res.returnValue) {
+              toast(t('Could not uninstall %s.').replace('%s', a.title), true);
+              return;
+            }
+            disintegrateApp(a, function () {
+              apps = apps.filter(function (x) {
+                return x.id !== a.id;
+              });
+              if (cfg.dock)
+                cfg.dock = cfg.dock.filter(function (x) {
+                  return x !== a.id;
+                });
+              if (cfg.hidden)
+                cfg.hidden = cfg.hidden.filter(function (x) {
+                  return x !== a.id;
+                });
+              delete tiles[a.id];
+              store();
+              lastSig = '';
+              rebuild();
+              if (rows[r]) {
+                c = Math.min(c, rows[r].length - 1);
+                if (rows[r][c]) setFocus(r, c);
+              }
+              toast(t('%s uninstalled.').replace('%s', a.title));
+              load();
+            });
+          });
+      },
+    },
+    {
+      label: t('Cancel'),
+      fn: function () {
+        backMenu();
+      },
+    },
+  ]);
 }
 
 function removeButton(o) {

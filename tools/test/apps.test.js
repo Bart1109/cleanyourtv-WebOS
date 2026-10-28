@@ -101,4 +101,110 @@ run(async () => {
     r.j.returnValue === true && config.get().pinnedInputs.length === 1 && config.get().dock.indexOf('com.webos.app.hdmi2') < 0,
     'an input taken off Home leaves the dock too'
   );
+
+  // uninstalling apps
+  r = await call(apps, '/api/apps/uninstall', 'POST', { id: 'bad id!' });
+  ok(r.code === 400 && r.j.returnValue === false, 'uninstall with bad id is refused');
+  r = await call(apps, '/api/apps/uninstall', 'POST', { id: 'com.cleanyourtv.manager' });
+  ok(r.code === 400 && r.j.returnValue === false, 'uninstall of CleanYourTV itself is refused');
+  r = await call(apps, '/api/apps/uninstall', 'POST', { id: 'a.one' });
+  ok(r.code === 400 && r.j.returnValue === false, 'uninstalling a non-removable app is refused');
+
+  const removedCalls = [];
+  const luna2 = async (uri, payload) => {
+    if (/listApps/.test(uri)) {
+      return {
+        returnValue: true,
+        apps: [
+          {
+            id: 'com.store.app',
+            title: 'Store App',
+            folderPath: '/media/cryptofs/apps/usr/palm/applications/com.store.app',
+            removable: true,
+          },
+          { id: 'com.dev.app', title: 'Dev App', folderPath: '/media/developer/apps/usr/palm/applications/com.dev.app' },
+        ],
+      };
+    }
+    if (/appInstallService/.test(uri)) {
+      removedCalls.push({ uri, id: payload.id });
+      return { returnValue: true };
+    }
+    return { returnValue: true };
+  };
+  const config2 = memoryConfig({ dock: ['com.store.app', 'com.dev.app'], hidden: ['com.store.app'] });
+  const apps2 = req('apps').create({ config: config2, luna: luna2, version: '1.6.0', feature: () => null });
+  const list2 = await call(apps2, '/api/apps');
+  ok(
+    list2.j.apps.length === 2 && list2.j.apps[0].removable === true && list2.j.apps[1].removable === true,
+    'store and dev apps are marked removable'
+  );
+
+  r = await call(apps2, '/api/apps/uninstall', 'POST', { id: 'com.store.app' });
+  ok(
+    r.j.returnValue === true &&
+      removedCalls.some(c => /appInstallService\/remove$/.test(c.uri) && c.id === 'com.store.app') &&
+      config2.get().dock.indexOf('com.store.app') < 0 &&
+      config2.get().hidden.indexOf('com.store.app') < 0,
+    'a store app is removed via appInstallService/remove and dropped from dock and hidden'
+  );
+
+  r = await call(apps2, '/api/apps/uninstall', 'POST', { id: 'com.dev.app' });
+  ok(
+    r.j.returnValue === true &&
+      removedCalls.some(c => /appInstallService\/dev\/remove$/.test(c.uri) && c.id === 'com.dev.app') &&
+      config2.get().dock.indexOf('com.dev.app') < 0,
+    'a dev app is removed via appInstallService/dev/remove and dropped from dock'
+  );
+
+  // a removal that fails changes nothing: no files deleted, the dock, the hidden list and the app list stay as they were
+  const fs = require('fs'),
+    ex = require('../../helper/exec');
+  const rms = [],
+    exists = fs.existsSync,
+    execFile = ex.execFile;
+  fs.existsSync = f => /^\/media\/developer\/apps\/usr\/palm\//.test(String(f)) || exists(f);
+  ex.execFile = (cmd, args, o, cb) => {
+    if (cmd === 'rm') rms.push(args.join(' '));
+    else execFile(cmd, args, o, cb);
+  };
+  try {
+    let fail = true;
+    const luna3 = async uri => {
+      if (/listApps/.test(uri))
+        return {
+          returnValue: true,
+          apps: [{ id: 'com.dev.keep', title: 'Keep', folderPath: '/media/developer/apps/usr/palm/applications/com.dev.keep' }],
+        };
+      if (/appInstallService/.test(uri)) return fail ? { returnValue: false, errorText: 'busy' } : { returnValue: true };
+      return { returnValue: true };
+    };
+    const config3 = memoryConfig({ dock: ['com.dev.keep'], hidden: ['com.dev.keep'] });
+    const apps3 = req('apps').create({ config: config3, luna: luna3, version: '1.6.0', feature: () => null });
+    await call(apps3, '/api/apps');
+    r = await call(apps3, '/api/apps/uninstall', 'POST', { id: 'com.dev.keep' });
+    const after = await call(apps3, '/api/apps');
+    ok(
+      r.code === 400 &&
+        r.j.error === 'busy' &&
+        rms.length === 0 &&
+        config3.get().dock.indexOf('com.dev.keep') >= 0 &&
+        config3.get().hidden.indexOf('com.dev.keep') >= 0 &&
+        after.j.apps.some(x => x.id === 'com.dev.keep'),
+      'a failed removal deletes no files and leaves the dock, the hidden list and the app list alone'
+    );
+    fail = false;
+    r = await call(apps3, '/api/apps/uninstall', 'POST', { id: 'com.dev.keep' });
+    ok(
+      r.j.returnValue === true &&
+        rms.length === 2 &&
+        rms.every(x => /^-rf \/media\/developer\/apps\/usr\/palm\/(packages|applications)\/com\.dev\.keep$/.test(x)),
+      'a removal that works deletes the package folders'
+    );
+  } finally {
+    fs.existsSync = exists;
+    ex.execFile = execFile;
+  }
+  for (const bad of ['..', '.hidden', '../x'])
+    ok((await call(apps, '/api/apps/uninstall', 'POST', { id: bad })).j.error === 'refused', 'the id ' + bad + ' is refused');
 });
