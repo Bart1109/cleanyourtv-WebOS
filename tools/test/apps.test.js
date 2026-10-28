@@ -101,4 +101,59 @@ run(async () => {
     r.j.returnValue === true && config.get().pinnedInputs.length === 1 && config.get().dock.indexOf('com.webos.app.hdmi2') < 0,
     'an input taken off Home leaves the dock too'
   );
+
+  // uninstalling apps
+  r = await call(apps, '/api/apps/uninstall', 'POST', { id: 'bad id!' });
+  ok(r.code === 400 && r.j.returnValue === false, 'uninstall with bad id is refused');
+  r = await call(apps, '/api/apps/uninstall', 'POST', { id: 'com.cleanyourtv.manager' });
+  ok(r.code === 400 && r.j.returnValue === false, 'uninstall of CleanYourTV itself is refused');
+  r = await call(apps, '/api/apps/uninstall', 'POST', { id: 'a.one' });
+  ok(r.code === 400 && r.j.returnValue === false, 'uninstalling a non-removable app is refused');
+
+  const removedCalls = [];
+  const luna2 = async (uri, payload) => {
+    if (/listApps/.test(uri)) {
+      return {
+        returnValue: true,
+        apps: [
+          {
+            id: 'com.store.app',
+            title: 'Store App',
+            folderPath: '/media/cryptofs/apps/usr/palm/applications/com.store.app',
+            removable: true,
+          },
+          { id: 'com.dev.app', title: 'Dev App', folderPath: '/media/developer/apps/usr/palm/applications/com.dev.app' },
+        ],
+      };
+    }
+    if (/appInstallService/.test(uri)) {
+      removedCalls.push({ uri, id: payload.id });
+      return { returnValue: true };
+    }
+    return { returnValue: true };
+  };
+  const config2 = memoryConfig({ dock: ['com.store.app', 'com.dev.app'], hidden: ['com.store.app'] });
+  const apps2 = req('apps').create({ config: config2, luna: luna2, version: '1.6.0', feature: () => null });
+  const list2 = await call(apps2, '/api/apps');
+  ok(
+    list2.j.apps.length === 2 && list2.j.apps[0].removable === true && list2.j.apps[1].removable === true,
+    'store and dev apps are marked removable'
+  );
+
+  r = await call(apps2, '/api/apps/uninstall', 'POST', { id: 'com.store.app' });
+  ok(
+    r.j.returnValue === true &&
+      removedCalls.some(c => /appInstallService\/remove$/.test(c.uri) && c.id === 'com.store.app') &&
+      config2.get().dock.indexOf('com.store.app') < 0 &&
+      config2.get().hidden.indexOf('com.store.app') < 0,
+    'a store app is removed via appInstallService/remove and dropped from dock and hidden'
+  );
+
+  r = await call(apps2, '/api/apps/uninstall', 'POST', { id: 'com.dev.app' });
+  ok(
+    r.j.returnValue === true &&
+      removedCalls.some(c => /appInstallService\/dev\/remove$/.test(c.uri) && c.id === 'com.dev.app') &&
+      config2.get().dock.indexOf('com.dev.app') < 0,
+    'a dev app is removed via appInstallService/dev/remove and dropped from dock'
+  );
 });
