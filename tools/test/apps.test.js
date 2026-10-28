@@ -156,4 +156,55 @@ run(async () => {
       config2.get().dock.indexOf('com.dev.app') < 0,
     'a dev app is removed via appInstallService/dev/remove and dropped from dock'
   );
+
+  // a removal that fails changes nothing: no files deleted, the dock, the hidden list and the app list stay as they were
+  const fs = require('fs'),
+    ex = require('../../helper/exec');
+  const rms = [],
+    exists = fs.existsSync,
+    execFile = ex.execFile;
+  fs.existsSync = f => /^\/media\/developer\/apps\/usr\/palm\//.test(String(f)) || exists(f);
+  ex.execFile = (cmd, args, o, cb) => {
+    if (cmd === 'rm') rms.push(args.join(' '));
+    else execFile(cmd, args, o, cb);
+  };
+  try {
+    let fail = true;
+    const luna3 = async uri => {
+      if (/listApps/.test(uri))
+        return {
+          returnValue: true,
+          apps: [{ id: 'com.dev.keep', title: 'Keep', folderPath: '/media/developer/apps/usr/palm/applications/com.dev.keep' }],
+        };
+      if (/appInstallService/.test(uri)) return fail ? { returnValue: false, errorText: 'busy' } : { returnValue: true };
+      return { returnValue: true };
+    };
+    const config3 = memoryConfig({ dock: ['com.dev.keep'], hidden: ['com.dev.keep'] });
+    const apps3 = req('apps').create({ config: config3, luna: luna3, version: '1.6.0', feature: () => null });
+    await call(apps3, '/api/apps');
+    r = await call(apps3, '/api/apps/uninstall', 'POST', { id: 'com.dev.keep' });
+    const after = await call(apps3, '/api/apps');
+    ok(
+      r.code === 400 &&
+        r.j.error === 'busy' &&
+        rms.length === 0 &&
+        config3.get().dock.indexOf('com.dev.keep') >= 0 &&
+        config3.get().hidden.indexOf('com.dev.keep') >= 0 &&
+        after.j.apps.some(x => x.id === 'com.dev.keep'),
+      'a failed removal deletes no files and leaves the dock, the hidden list and the app list alone'
+    );
+    fail = false;
+    r = await call(apps3, '/api/apps/uninstall', 'POST', { id: 'com.dev.keep' });
+    ok(
+      r.j.returnValue === true &&
+        rms.length === 2 &&
+        rms.every(x => /^-rf \/media\/developer\/apps\/usr\/palm\/(packages|applications)\/com\.dev\.keep$/.test(x)),
+      'a removal that works deletes the package folders'
+    );
+  } finally {
+    fs.existsSync = exists;
+    ex.execFile = execFile;
+  }
+  for (const bad of ['..', '.hidden', '../x'])
+    ok((await call(apps, '/api/apps/uninstall', 'POST', { id: bad })).j.error === 'refused', 'the id ' + bad + ' is refused');
 });

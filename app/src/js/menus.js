@@ -514,58 +514,44 @@ function confirmUninstall(a) {
       fn: function () {
         closeMenus();
         toast(t('Uninstalling %s...').replace('%s', a.title));
-
-        var animating = true,
-          apiFinished = false,
-          apiResult = null;
-
-        function finish() {
-          if (animating || !apiFinished) return;
-          if (apiResult && apiResult.returnValue) {
-            toast(t('%s uninstalled.').replace('%s', a.title));
-          } else {
-            toast(t('Could not uninstall %s.').replace('%s', a.title), true);
-          }
-          lastSig = '';
-          load();
-        }
-
-        disintegrateApp(a, function () {
-          animating = false;
-          apps = apps.filter(function (x) {
-            return x.id !== a.id;
-          });
-          if (cfg.dock) {
-            cfg.dock = cfg.dock.filter(function (x) {
-              return x !== a.id;
-            });
-          }
-          if (cfg.hidden) {
-            cfg.hidden = cfg.hidden.filter(function (x) {
-              return x !== a.id;
-            });
-          }
-          delete tiles[a.id];
-          store();
-          lastSig = '';
-          rebuild();
-          if (rows[r]) {
-            c = Math.min(c, rows[r].length - 1);
-            if (rows[r][c]) setFocus(r, c);
-          }
-          finish();
-        });
-
+        /* the tile goes only once the TV has removed the app; a failed removal leaves Home, the dock and the hidden list as they were */
         api('/api/apps/uninstall', { id: a.id })
-          .then(function (r) {
-            apiFinished = true;
-            apiResult = r;
-            finish();
-          })
-          .catch(function () {
-            apiFinished = true;
-            apiResult = { returnValue: false };
-            finish();
+          .then(
+            function (res) {
+              return res;
+            },
+            function () {
+              return { returnValue: false };
+            }
+          )
+          .then(function (res) {
+            if (!res || !res.returnValue) {
+              toast(t('Could not uninstall %s.').replace('%s', a.title), true);
+              return;
+            }
+            disintegrateApp(a, function () {
+              apps = apps.filter(function (x) {
+                return x.id !== a.id;
+              });
+              if (cfg.dock)
+                cfg.dock = cfg.dock.filter(function (x) {
+                  return x !== a.id;
+                });
+              if (cfg.hidden)
+                cfg.hidden = cfg.hidden.filter(function (x) {
+                  return x !== a.id;
+                });
+              delete tiles[a.id];
+              store();
+              lastSig = '';
+              rebuild();
+              if (rows[r]) {
+                c = Math.min(c, rows[r].length - 1);
+                if (rows[r][c]) setFocus(r, c);
+              }
+              toast(t('%s uninstalled.').replace('%s', a.title));
+              load();
+            });
           });
       },
     },

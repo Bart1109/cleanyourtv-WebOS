@@ -400,8 +400,9 @@ body {
 .tile.disintegrate {
   pointer-events: none !important;
   will-change: transform, opacity;
-  transition: transform calc(0.38s * var(--spd)) cubic-bezier(0.2, 0.8, 0.2, 1),
-              opacity calc(0.32s * var(--spd)) ease-out !important;
+  transition:
+    transform calc(0.38s * var(--spd)) cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity calc(0.32s * var(--spd)) ease-out !important;
   transform: scale(0.15) !important;
   opacity: 0 !important;
 }
@@ -418,8 +419,9 @@ body {
   opacity: 1;
   will-change: transform, opacity;
   transform: translate3d(0, 0, 0) scale(1);
-  transition: transform calc(0.4s * var(--spd)) cubic-bezier(0.1, 0.85, 0.25, 1),
-              opacity calc(0.35s * var(--spd)) ease-out;
+  transition:
+    transform calc(0.4s * var(--spd)) cubic-bezier(0.1, 0.85, 0.25, 1),
+    opacity calc(0.35s * var(--spd)) ease-out;
 }
 .tile img {
   object-fit: contain;
