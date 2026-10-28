@@ -55,6 +55,21 @@ run(async () => {
     }
   }
   ok(!gapBad.length, 'no flex container uses gap (a sibling margin instead)' + (gapBad.length ? ':\n  ' + gapBad.join('\n  ') : ''));
+  // the centred app grid (grid.align center) is a flex row: #grid's own gap does not apply there on Chromium 68 and 79, so the tiles
+  // are spaced with margins and that gap is switched off for it (the check above only sees one rule at a time)
+  const home = fs.readFileSync(path.join(root, 'app', 'index.html'), 'utf8'),
+    rule = sel => {
+      const out = [],
+        re = /([^{}]+)\{([^{}]*)\}/g;
+      let m;
+      while ((m = re.exec(home))) if (m[1].trim().split('\n').pop().trim() === sel) out.push(m[2]);
+      return out.join(';');
+    };
+  ok(
+    /margin:\s*0 calc\(var\(--gap-x\) \/ 2\) var\(--gap-y\)/.test(rule('[data-galign="center"] #grid .tile')) &&
+      /(^|[;\s])gap:\s*0/.test(rule('[data-galign="center"] #grid')),
+    'the centred app grid spaces its tiles with margins (flex gap is ignored on webOS 5 and 6)'
+  );
   ok(
     !fs.existsSync(path.join(root, 'shared', 'flexgap.js')) && !/flexgap/.test(fs.readFileSync(path.join(root, 'ipk', 'build.py'), 'utf8')),
     'no script adds the spacing after a redraw'
