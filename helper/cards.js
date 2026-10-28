@@ -280,6 +280,8 @@ function create(ctx) {
     // Home Assistant cards: {ids} -> their states (kept 20 s); {id} -> switched (lights, switches, fans, scenes, scripts)
     if (u === '/api/cards/ha') return web.json(res, await ha.states(b.ids));
     if (u === '/api/cards/ha/toggle') return web.json(res, await ha.toggle(b.id));
+    // the launcher's Customise > Home Assistant: {domains} -> the entities to choose from
+    if (u === '/api/cards/ha/entities') return web.json(res, Object.assign({ ha: ha.ready() }, await ha.pick(b.domains)));
     web.notFound(res);
   }
   return { name: 'cards', prefix: '/api/cards/', handle, stop: stopPair };

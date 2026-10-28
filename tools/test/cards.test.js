@@ -175,6 +175,12 @@ run(async () => {
   r = await call(cards, '/api/cards/ha/camera/camera.door');
   const r4 = await call(cards, '/api/cards/ha/camera/light.living');
   ok(r.code === 200 && r4.code === 404, "a camera's picture is passed on, and only for camera entities");
+  r = await call(cards, '/api/cards/ha/entities', 'POST', { domains: ['sensor'] });
+  const r6 = await call(cards, '/api/cards/ha/entities', 'POST', {});
+  ok(
+    r.j.ha === true && r.j.entities.length === 1 && r.j.entities[0].unit === '°C' && r6.j.entities.length === 3,
+    "the launcher's Home Assistant menu gets the entities of the domains it asks for (all without), with their units"
+  );
   p = await phone('GET', '/api/entities', undefined, code);
   ok(p.j.entities.length === 3 && p.j.entities[0].id === 'light.living', 'the phone page lists the entities to choose from');
   has.server.close();

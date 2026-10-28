@@ -79,6 +79,11 @@ same place.
 | Home Assistant camera | A camera's picture, renewed every 10, 30 or 60 seconds while Home is shown. |
 | Text | Your own text. `{{greeting}}`, `{{time}}`, `{{date}}` and `{{weekday}}` are filled in and kept up to date, and `{{weather.temp}}` and `{{weather.text}}` with a weather card on Home; `**bold**`, `*italic*` and a line starting with `#` for a heading. In three sizes. |
 
+**Customise** > **Home Assistant** (the first row, in themes with places for cards) chooses the cards with
+the remote: for each place the kind of card (Home Assistant entity, entities, camera, greeting or empty, and the Home Assistant weather card where the launcher has it) and what it shows,
+picked from the entities Home Assistant has (a weather entity and a temperature sensor for the weather card; for the entity cards
+first the kind, such as lights or sensors, then the entity). It saves the same settings as the phone page. Its first row, **Connection**, says whether Home Assistant is linked and opens the manager app's Home Assistant screen with the code for the phone page.
+
 Names, texts and the other options are typed on your phone: **Cards** > **Set up from your phone** in the manager app shows a QR
 code. The page shows a form for each place, and **Edit as JSON** shows all cards at once, for example
 `{"greeting": {"type": "greeting", "name": "Sam"}}`. It stays open while you use it, at most an hour, and needs the code shown on
