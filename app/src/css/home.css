@@ -874,6 +874,82 @@ body.wpon {
 .card-ha-camera .ha-n {
   padding: 22px 26px;
 }
+/* the Home Assistant weather card: now on the left, the forecast in columns on the right */
+.card-ha-weather {
+  display: flex;
+  align-items: center;
+  color: var(--ink);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+.hw-now {
+  flex: none;
+  min-width: 250px;
+  text-align: start;
+}
+.hw-top {
+  display: flex;
+  align-items: center;
+}
+.hw-t {
+  font-size: calc(76px * var(--fs));
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.hw-c {
+  margin-top: 10px;
+  font-size: calc(26px * var(--fs));
+  font-weight: 600;
+  white-space: nowrap;
+}
+.hw-f,
+.hw-msg {
+  margin-top: 4px;
+  font-size: calc(22px * var(--fs));
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+}
+.hw-fc {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  margin-left: 28px;
+  padding-left: 24px;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+}
+.hw-fc > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 84px;
+  font-size: calc(22px * var(--fs));
+}
+.hw-fc > div + div {
+  margin-left: 10px;
+}
+.hw-d {
+  color: rgba(255, 255, 255, 0.75);
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.hw-fc svg {
+  width: 38px;
+  height: 38px;
+  margin: 8px 0;
+}
+.hw-fc b {
+  font-weight: 600;
+}
+.hw-fc small {
+  font-size: 0.9em;
+  color: rgba(255, 255, 255, 0.62);
+}
+.hw-fc i {
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 0.82em;
+  color: #9fd3ff;
+}
 /* OLED care (cards.js): dimmed after three minutes without a key; the slow shift of the whole layer is not animated */
 .cards-idle .card {
   opacity: 0.45;

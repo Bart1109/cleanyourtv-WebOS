@@ -156,6 +156,77 @@ function haPoll() {
       HA.at = Date.now() - 20000; /* again in ten seconds */
     });
 }
+/* ---- the Home Assistant weather card (ha-weather): the condition of a weather entity, the temperature outside (a sensor, or the entity's
+   own) and the forecast from weather.get_forecasts, through the service; asked again every five minutes ---- */
+var HAW = {};
+/* Home Assistant's conditions: an icon of the weather card's set, a word, and the nearest WMO code (for {{weather.text}} and the
+   greeting's second line, which read the last weather drawn) */
+var HAW_COND = {
+  sunny: ['sun', 'Sunny', 0],
+  'clear-night': ['moon', 'Clear', 0],
+  partlycloudy: ['part', 'Partly cloudy', 2],
+  cloudy: ['cloud', 'Cloudy', 3],
+  fog: ['fog', 'Fog', 45],
+  rainy: ['rain', 'Rain', 61],
+  pouring: ['rain', 'Heavy rain', 65],
+  snowy: ['snow', 'Snow', 71],
+  'snowy-rainy': ['snow', 'Sleet', 67],
+  hail: ['snow', 'Hail', 77],
+  lightning: ['storm', 'Thunderstorm', 95],
+  'lightning-rainy': ['storm', 'Thunderstorm', 95],
+  windy: ['wind', 'Windy', 3],
+  'windy-variant': ['wind', 'Windy', 3],
+  exceptional: ['cloud', 'Exceptional weather', 3],
+};
+WX_ICON.wind = '<path d="M3 8h11a3 3 0 1 0-3-3"/><path d="M3 12h16a3 3 0 1 1-3 3"/><path d="M3 16h8"/>';
+function hawKind(c) {
+  var k = HAW_COND[c] || ['cloud', c || '?', 3];
+  return [k[0], HAW_COND[c] ? t(k[1]) : k[1], k[2]];
+}
+function hawFor(o) {
+  var id = String(o.entity || '').trim(),
+    temp = String(o.temp || '').trim(),
+    kind = o.show === 'hourly' ? 'hourly' : o.show === 'none' ? 'none' : 'daily';
+  if (!id) return null;
+  var k = id + '|' + temp + '|' + kind,
+    e = HAW[k] || (HAW[k] = { w: null, at: 0, busy: false });
+  if (!e.busy && Date.now() - e.at > 300000) {
+    e.busy = true;
+    api('/api/cards/ha/weather', { id: id, temp: temp, kind: kind })
+      .then(function (w) {
+        e.busy = false;
+        e.at = Date.now();
+        e.w = w;
+        if (w && w.error) e.at = Date.now() - 240000; /* an error: again in a minute */
+        tickCards();
+      })
+      .catch(function () {
+        e.busy = false;
+        e.at = Date.now() - 240000;
+      });
+  }
+  var w = e.w;
+  if (w && w.now && w.now.temp !== null) {
+    var hk = hawKind(w.now.cond);
+    WX_LAST = { now: { temp: Math.round(w.now.temp), code: hk[2], day: w.now.cond !== 'clear-night' } };
+  }
+  return w;
+}
+/* a number for the card: one decimal under ten degrees, whole above */
+function hawNum(x) {
+  if (x === null || x === undefined) return '\u2013';
+  return Math.abs(x) < 10 && Math.round(x) !== x ? (Math.round(x * 10) / 10).toLocaleString(LOC) : String(Math.round(x));
+}
+/* a Home Assistant card is left out while there is nothing to show yet: Home Assistant not set up on the TV, or no entity chosen
+   (Customise > Home Assistant sets both); a card that is hidden is not a place for the focus either */
+var HA_NOT_SET = 'Home Assistant is not set up';
+function haHide(el, hide) {
+  var d = hide ? 'none' : '';
+  if (el.style.display !== d) {
+    el.style.display = d;
+  }
+  return hide;
+}
 /* camera cards get a new picture on their own schedule (every 10, 30 or 60 seconds) while Home is shown */
 setInterval(function () {
   if (document.hidden) return;
@@ -279,6 +350,7 @@ var CARD_TYPES = {
         name = String(o.name || (e && e.name) || id).slice(0, 60),
         st = e ? haState(e) : HA.err ? t(HA.err) : id ? '\u2026' : t('Choose an entity from your phone'),
         key = id + '|' + name + '|' + st + '|' + (e ? e.state : '');
+      haHide(el, !id || HA.err === HA_NOT_SET);
       el._o = { action: 'card', label: name };
       el.classList.toggle('on', !!e && e.state === 'on');
       if (el._k === key) return;
@@ -326,6 +398,7 @@ var CARD_TYPES = {
         }),
         title = String(o.title || '').slice(0, 60),
         key = title + JSON.stringify(rows) + HA.err;
+      haHide(el, !ids.length || HA.err === HA_NOT_SET);
       if (el._k === key) return;
       el._k = key;
       var h = title ? '<div class="ha-title"></div>' : '';
@@ -351,6 +424,7 @@ var CARD_TYPES = {
     },
     draw: function (el, o) {
       var id = String(o.entity || '').trim();
+      haHide(el, !id || HA.err === HA_NOT_SET);
       if (el._k === id) return;
       el._k = id;
       if (!/^camera\./.test(id)) {
@@ -386,6 +460,80 @@ var CARD_TYPES = {
       el.textContent = '';
       el.appendChild(im);
       el.appendChild(n);
+    },
+  },
+  /* Home Assistant weather: the condition and the temperature outside big on the left, the forecast (days or hours) on the right */
+  'ha-weather': {
+    name: function () {
+      return t('Home Assistant weather');
+    },
+    draw: function (el, o) {
+      var w = hawFor(o),
+        h;
+      if (haHide(el, !o.entity || (w && w.error === HA_NOT_SET))) return;
+      if (!w || w.error || !w.now) {
+        h = '<div class="hw-msg"></div>';
+        var m = !o.entity ? t('Choose a weather entity from your phone') : w && w.error ? t(w.error) : '\u2026';
+        if (el._k === 'm' + m) return;
+        el._k = 'm' + m;
+        el.innerHTML = h;
+        el.firstChild.textContent = m;
+        return;
+      }
+      var k = hawKind(w.now.cond),
+        unit = /F/.test(w.now.unit) ? '\u00B0F' : '\u00B0',
+        facts = [];
+      if (w.now.hum !== null) facts.push(Math.round(w.now.hum) + '%');
+      if (w.now.wind !== null) facts.push(Math.round(w.now.wind) + (w.now.windUnit ? ' ' + w.now.windUnit : ''));
+      h =
+        '<div class="hw-now"><div class="hw-top"><span class="wx-i">' +
+        wxSvg(k[0]) +
+        '</span><span class="hw-t">' +
+        hawNum(w.now.temp) +
+        unit +
+        '</span></div><div class="hw-c"></div><div class="hw-f"></div></div>';
+      /* the daily forecast starts tomorrow: today is the left half of the card */
+      var today = new Date().toDateString(),
+        list = (w.list || [])
+          .filter(function (f) {
+            return w.kind !== 'daily' || new Date(f.t).toDateString() !== today;
+          })
+          .slice(0, w.kind === 'hourly' ? 6 : 5);
+      if (list.length) {
+        h +=
+          '<div class="hw-fc">' +
+          list
+            .map(function (f) {
+              var lab = '';
+              try {
+                var d = new Date(f.t);
+                lab =
+                  w.kind === 'hourly'
+                    ? d.toLocaleTimeString(LOC, { hour: 'numeric', minute: '2-digit' })
+                    : d.toLocaleDateString(LOC, { weekday: 'short' });
+              } catch (e) {}
+              return (
+                '<div><span class="hw-d">' +
+                lab +
+                '</span>' +
+                wxSvg(hawKind(f.cond)[0]) +
+                '<b>' +
+                hawNum(f.hi) +
+                '\u00B0</b>' +
+                (f.lo !== null ? '<small>' + hawNum(f.lo) + '\u00B0</small>' : '') +
+                (f.rain !== null && f.rain > 0 ? '<i>' + Math.round(f.rain) + '%</i>' : '') +
+                '</div>'
+              );
+            })
+            .join('') +
+          '</div>';
+      }
+      var key = h + '|' + k[1] + facts.join();
+      if (el._k === key) return;
+      el._k = key;
+      el.innerHTML = h;
+      el.querySelector('.hw-c').textContent = k[1];
+      el.querySelector('.hw-f').textContent = facts.join(' \u00B7 ');
     },
   },
   /* text from the phone page, with what changes filled in */
@@ -441,7 +589,7 @@ function tickCards() {
     i;
   for (pass = 0; pass < 2; pass++)
     for (i = 0; i < els.length; i++)
-      if ((els[i]._card.type === 'weather') === (pass === 0)) CARD_TYPES[els[i]._card.type].draw(els[i], els[i]._card);
+      if (/^(ha-)?weather$/.test(els[i]._card.type) === (pass === 0)) CARD_TYPES[els[i]._card.type].draw(els[i], els[i]._card);
   haPoll();
 }
 /* the cards that OK can do something with: they join the top row (with the buttons) for the remote */
@@ -450,7 +598,7 @@ function cardTargets() {
     els = $('cards').children;
   for (var i = 0; i < els.length; i++) {
     var ty = CARD_TYPES[els[i]._card.type];
-    if (ty.act) out.push(els[i]);
+    if (ty.act && els[i].style.display !== 'none') out.push(els[i]);
   }
   return out;
 }
