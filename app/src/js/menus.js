@@ -97,10 +97,20 @@ function backMenu() {
   if (stack.length) refreshMenu();
   else closeMenus();
 }
-function drawMenu() {
+/* Hovering never moves the list, except on its first or last visible row, where it scrolls one row: 1 down, -1 up, 0 not at all.
+   k: the row under the pointer, start: the first row on show, N: how many are on show, len: how many rows there are */
+function hoverDir(k, start, N, len) {
+  if (k === start + N - 1 && start + N < len) return 1;
+  if (k === start && start > 0) return -1;
+  return 0;
+}
+function drawMenu(win) {
+  // win: the first visible row, when the pointer asks for a window (otherwise the selection sits on the fourth row)
   var m = stack[stack.length - 1],
     N = 8,
     start = Math.max(0, Math.min(m.idx - 3, m.items.length - N));
+  if (typeof win === 'number') start = Math.max(0, Math.min(win, m.items.length - N));
+  m.start = start;
   if (!ovEl) {
     ovEl = document.createElement('div');
     ovEl.id = 'ov';
@@ -164,6 +174,21 @@ function drawMenu() {
       m.idx = +row.getAttribute('data-i');
       pickMenu();
     });
+    row.addEventListener('mousemove', function (ev) {
+      var k = +row.getAttribute('data-i');
+      if (m.idx === k || Date.now() - lastKey < 1500) return;
+      if (lastMX >= 0 && Math.abs(ev.clientX - lastMX) + Math.abs(ev.clientY - lastMY) < 24) return; // real movement only
+      lastMX = ev.clientX;
+      lastMY = ev.clientY;
+      // hovering never moves the list, except on the first and last visible row, where it scrolls one row, at most about three times a second
+      var s0 = m.start || 0,
+        now = Date.now(),
+        dir = hoverDir(k, s0, N, m.items.length);
+      if (dir && now - (m.scrollAt || 0) < 350) dir = 0;
+      if (dir) m.scrollAt = now;
+      m.idx = k;
+      drawMenu(s0 + dir);
+    });
   });
 }
 /* a row without stay closes the menus (it opened an app or finished a task); with stay the menu stays and shows the new values */
@@ -196,6 +221,45 @@ function menuKey(k) {
   else return false;
   return true;
 }
+
+/* The wheel on the home screen goes tile by tile in reading order: along the dock, then along the grid row after row (the end of a row
+   goes on with the next one), and the other way back. The top buttons stay with the Up key and the pointer; from them the wheel goes
+   down to the first tile. */
+function homeStep(dir) {
+  var first = rows[1] === rows[0] ? 2 : 1; // without a dock, row 1 is the row of buttons again
+  if (r < first) {
+    if (dir > 0) setFocus(first, 0);
+    return;
+  }
+  var nr = r,
+    nc = c + dir;
+  if (nc < 0) {
+    nr = r - 1;
+    if (nr < first) return;
+    nc = rows[nr].length - 1;
+  } else if (nc >= rows[r].length) {
+    nr = r + 1;
+    if (nr >= rows.length) return;
+    nc = 0;
+  }
+  setFocus(nr, nc);
+}
+/* the Magic Remote's wheel moves an open menu one row per notch, and on the home screen one tile (homeStep); lastKey keeps the pointer
+   from taking the selection back while the list moves under it. Live TV has its own wheel handling. */
+var lastWheel = 0;
+document.addEventListener(
+  'wheel',
+  function (e) {
+    if (LIVE.on || !e.deltaY) return;
+    e.preventDefault();
+    lastKey = Date.now();
+    if (lastKey - lastWheel < (stack.length ? 70 : 100)) return;
+    lastWheel = lastKey;
+    if (stack.length) menuKey(e.deltaY > 0 ? 40 : 38);
+    else homeStep(e.deltaY > 0 ? 1 : -1);
+  },
+  { passive: false }
+);
 
 /* Back on the home screen lists the running apps to close them, as LG's Home does with its Recents on a second Back (issue 16) */
 function runningMenu() {

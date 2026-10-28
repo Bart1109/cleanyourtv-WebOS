@@ -28,7 +28,8 @@ same on every supported webOS version.
 | Put an input on Home | Hold OK on it in the Inputs list |
 | Close running apps | Back on the home screen |
 
-The Magic Remote pointer works too: pointing and clicking, and holding the button on an app for its options.
+The Magic Remote pointer works too: pointing and clicking, and holding the button on an app for its options. The wheel moves from tile to tile on the
+home screen (along the dock, then the grid row by row) and up and down in every menu, where the list scrolls one row at a time and, under the pointer, only when it reaches the first or last row on show.
 
 ![App options](screenshots/options.jpg)
 
