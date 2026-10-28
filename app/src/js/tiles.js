@@ -1,6 +1,9 @@
 /* ---------- tiles (built once per app, reused across rebuilds) ---------- */
 function tile(a) {
-  if (tiles[a.id]) return a.input ? inputTile(tiles[a.id], a) : tiles[a.id];
+  if (tiles[a.id]) {
+    tiles[a.id]._a = a;
+    return a.input ? inputTile(tiles[a.id], a) : tiles[a.id];
+  }
   var d = document.createElement('div');
   d.className = 'tile' + (a.sys ? ' sys' : '');
   d._a = a;

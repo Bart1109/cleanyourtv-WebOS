@@ -104,7 +104,7 @@ function load() {
       });
       var sig = JSON.stringify([
         x.apps.map(function (a) {
-          return a.input ? [a.id, a.title, a.off] : a.id;
+          return a.input ? [a.id, a.title, a.off] : [a.id, !!a.removable];
         }),
         x.config,
         rank,
@@ -112,7 +112,9 @@ function load() {
       if (sig === lastSig) return;
       lastSig = sig;
       apps = x.apps.map(function (a) {
-        return a.input ? { id: a.id, title: a.title, input: a.input, off: !!a.off } : { id: a.id, title: a.title };
+        return a.input
+          ? { id: a.id, title: a.title, input: a.input, off: !!a.off }
+          : { id: a.id, title: a.title, removable: !!a.removable };
       });
       cfg = x.config || {};
       useLang(cfg.lang);
@@ -130,4 +132,13 @@ function load() {
       toast(t('Helper not reachable, retrying...'));
       setTimeout(load, 3000);
     });
+}
+
+var refreshT = 0,
+  refreshT2 = 0;
+function refreshSoon() {
+  clearTimeout(refreshT);
+  clearTimeout(refreshT2);
+  refreshT = setTimeout(load, 1800);
+  refreshT2 = setTimeout(load, 4500);
 }
