@@ -1,6 +1,6 @@
 # Languages
 
-CleanYourTV's screens are in English, Dutch, German, French, Spanish, Russian, Turkish and Arabic: the launcher, its menus and Live TV, the manager app, the
+CleanYourTV's screens are in English, Dutch, German, French, Spanish, Catalan, Russian, Turkish and Arabic: the launcher, its menus and Live TV, the manager app, the
 Inputs list, and the pages a phone opens from a QR code (Wallpapers, Live TV setup, voice setup, Share log).
 
 ## Choosing the language
@@ -13,8 +13,8 @@ Inputs list, and the pages a phone opens from a QR code (Wallpapers, Live TV set
 
 ## Adding or improving a language
 
-The Russian, Turkish and Arabic translations were machine-made and have not been reviewed by a native speaker yet; corrections
-are very welcome.
+The Catalan translation is complete but has not yet been reviewed by a native speaker; corrections are very welcome. The Russian,
+Turkish and Arabic translations were machine-made and have not been reviewed by a native speaker yet; corrections are also welcome.
 
 Translations are plain text files in the repository, one per language, so no programming is needed. Anyone can add a language or
 fix a translation with a pull request; the next daily release then brings it to every TV.
