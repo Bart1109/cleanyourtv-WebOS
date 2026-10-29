@@ -9,6 +9,13 @@
    "preview": "classic/preview.jpg"
   },
   {
+   "id": "big-tiles",
+   "name": "Big Tiles",
+   "author": "CleanYourTV",
+   "description": "Classic with large tiles matching the dock in four columns.",
+   "preview": "big-tiles/preview.jpg"
+  },
+  {
    "id": "bloom",
    "name": "Bloom",
    "author": "CleanYourTV",
