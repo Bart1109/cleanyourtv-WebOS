@@ -57,8 +57,13 @@ card are small and stay single files.
       the launcher the same way. `/tmp/cleanyourtv-home-standin` holds the program's path while it is mounted; `reload-home.sh`,
       `undo-home.sh`, the debloat hook and the manager's status read it. If `webapp-mgr` does not list the launcher within 30
       seconds, `undo-home.sh temp` brings LG's Home back. `home-method` holding `mount` forces the first way.
-4. A **watchdog** keeps checking that the service answers. If it stays unreachable for about a minute, it restores LG's Home until
-   the next reboot.
+4. A **watchdog** (`watchdog.sh`, one per boot, started by the boot script also while LG's Home is selected) asks the service every 10
+   seconds. When the service has stopped, it starts it again (also while LG's Home is back after a fallback, but not while
+   `bootstrap.sh` runs), notes that in `/tmp/cleanyourtv-boot.log` and adds the log of the run that ended to
+   `/tmp/cleanyourtv-helper.crash.log` (the last 400 lines; Share log includes it). A service that stops again at once is started less
+   often (after 10, 20 ... up to 120 seconds). If the service stays unreachable for about a minute while our launcher is Home, it
+   restores LG's Home until the next reboot. An update stops the watchdog and the boot script starts the one from the new files; it
+   ends by itself when CleanYourTV is uninstalled (`helper.js` gone).
 
 Nothing is written under `/usr`: the mount disappears at reboot. `DISABLE` in `/media/developer/cleanyourtv` makes the script skip it.
 

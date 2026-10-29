@@ -2,7 +2,7 @@
 const fs = require('fs'),
   path = require('path'),
   cp = require('child_process');
-const { root, tmp, ok, run } = require('./lib');
+const { root, tmp, ok, run, sleep } = require('./lib');
 
 run(async () => {
   const scripts = fs
@@ -164,4 +164,109 @@ run(async () => {
       !/TESTED_SDK/.test(bootText),
     'the setup takes the window type and the compatibility list from tvprofile.js'
   );
+
+  // the watchdog (watchdog.sh): starts a service that has stopped again, keeps the logs of the runs that ended, starts less often a
+  // service that stops at once, survives its own file being replaced by an update, and ends when CleanYourTV is gone.
+  // A stand-in service counts its starts and writes "run <n>" to its log; the address the watchdog asks answers nothing. Everything
+  // waits for what it expects (up to 15 s) instead of for a fixed time, so a slow machine does not fail it.
+  const waitFor = async (cond, ms) => {
+    for (let t = 0; t < (ms || 15000) && !cond(); t += 100) await sleep(100);
+    return cond();
+  };
+  const watch = (dir, script) => {
+    const w = cp.spawn('sh', [script], {
+      env: Object.assign({}, process.env, {
+        CYTV_DIR: dir,
+        CYTV_BOOT_LOG: path.join(dir, 'boot.log'),
+        CYTV_SERVICE_LOG: path.join(dir, 'helper.log'),
+        CYTV_SERVICE_URL: 'http://127.0.0.1:9/none',
+        CYTV_WATCH_SECS: '1',
+        WD_MARK: path.join(dir, 'starts'),
+      }),
+      stdio: 'ignore',
+    });
+    w.gone = false;
+    w.on('exit', () => (w.gone = true));
+    return w;
+  };
+  const countStarts = dir =>
+    fs.existsSync(path.join(dir, 'starts')) ? fs.readFileSync(path.join(dir, 'starts'), 'utf8').split('\n').filter(Boolean).length : 0;
+  const text = f => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '');
+
+  // 1. a service that keeps running
+  const W = path.join(tmp, 'wd');
+  fs.mkdirSync(W);
+  fs.writeFileSync(
+    path.join(W, 'helper.js'),
+    "const fs = require('fs'); fs.appendFileSync(process.env.WD_MARK, 'start\\n');" +
+      " console.log('run ' + fs.readFileSync(process.env.WD_MARK, 'utf8').split('\\n').filter(Boolean).length); setInterval(function () {}, 1000);\n"
+  );
+  fs.writeFileSync(path.join(W, 'helper.log'), 'the run that ended\n');
+  fs.copyFileSync(path.join(root, 'scripts', 'watchdog.sh'), path.join(W, 'watchdog.sh')); // a copy, so the test can replace it
+  const killService = dir => cp.spawnSync('pkill', ['-f', dir + '/helper.js']);
+  const wd = watch(W, path.join(W, 'watchdog.sh'));
+  await waitFor(() => countStarts(W) >= 1 && /start 1 in a row/.test(text(path.join(W, 'boot.log'))));
+  await sleep(2500); // a service that runs is left alone
+  ok(
+    countStarts(W) === 1 &&
+      /watchdog: the service had stopped; starting it again/.test(text(path.join(W, 'boot.log'))) &&
+      /the run that ended/.test(text(path.join(W, 'helper.crash.log'))),
+    'the watchdog starts a stopped service once, says so in the boot log and keeps the log of the run that ended'
+  );
+  // an update copies a new watchdog.sh over the running one: the running copy goes on
+  fs.writeFileSync(path.join(W, 'watchdog.sh'), '#!/bin/sh\necho replaced > "$0.was-run"\n');
+  killService(W);
+  const again = await waitFor(() => countStarts(W) >= 2);
+  const crash = text(path.join(W, 'helper.crash.log'));
+  ok(
+    again && /the run that ended/.test(crash) && /run 1/.test(crash),
+    'it starts the service again each time it stops, also after its own file was replaced, and the crash log keeps every run'
+  );
+  fs.unlinkSync(path.join(W, 'helper.js'));
+  ok(await waitFor(() => wd.gone, 10000), 'the watchdog ends when CleanYourTV is no longer installed');
+  killService(W);
+  if (!wd.gone) wd.kill();
+  ok(!fs.existsSync(path.join(W, 'watchdog.sh.was-run')), 'the replaced file was not run by the running watchdog');
+
+  // 1b. not while bootstrap.sh runs (a setup or an update starts and stops the service itself), but a command line that only mentions
+  // the name does not count
+  const S2 = path.join(tmp, 'wd-boot');
+  fs.mkdirSync(S2);
+  fs.writeFileSync(
+    path.join(S2, 'helper.js'),
+    "require('fs').appendFileSync(process.env.WD_MARK, 'start\\n'); setInterval(function () {}, 1000);\n"
+  );
+  fs.writeFileSync(path.join(S2, 'bootstrap.sh'), 'sleep 4\n');
+  const bootRun = cp.spawn('sh', [path.join(S2, 'bootstrap.sh'), 'update'], { stdio: 'ignore' });
+  const w2 = watch(S2, path.join(root, 'scripts', 'watchdog.sh'));
+  await sleep(2500);
+  const early = countStarts(S2);
+  const late = await waitFor(() => countStarts(S2) >= 1);
+  ok(early === 0 && late, 'the watchdog leaves the service alone while bootstrap.sh runs and starts it afterwards');
+  bootRun.kill();
+  const mention = cp.spawn('sh', ['-c', 'sleep 30 # ' + path.join(S2, 'bootstrap.sh')], { stdio: 'ignore' });
+  killService(S2);
+  ok(await waitFor(() => countStarts(S2) >= 2), 'a command that only mentions bootstrap.sh does not hold the watchdog back');
+  mention.kill();
+  fs.unlinkSync(path.join(S2, 'helper.js'));
+  await waitFor(() => w2.gone, 10000);
+  killService(S2);
+  if (!w2.gone) w2.kill();
+
+  // 2. a service that stops at once is started less and less often (without that it would be 1 start a second)
+  const B = path.join(tmp, 'wd-crash');
+  fs.mkdirSync(B);
+  fs.writeFileSync(path.join(B, 'helper.js'), "require('fs').appendFileSync(process.env.WD_MARK, 'start\\n'); console.log('crash');\n");
+  const wb = watch(B, path.join(root, 'scripts', 'watchdog.sh'));
+  await waitFor(() => countStarts(B) >= 2);
+  await sleep(6000);
+  const n = countStarts(B);
+  ok(n >= 2 && n <= 5, 'a service that keeps stopping is started less and less often (' + n + ' starts in about 7 seconds)');
+  ok(
+    (text(path.join(B, 'helper.crash.log')).match(/=== the service log of a run that ended/g) || []).length === n - 1,
+    'every start leaves the log of the run before it in the crash log'
+  );
+  fs.unlinkSync(path.join(B, 'helper.js'));
+  await waitFor(() => wb.gone, 10000);
+  if (!wb.gone) wb.kill();
 });
