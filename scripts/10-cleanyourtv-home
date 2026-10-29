@@ -13,6 +13,10 @@ LOG=/tmp/cleanyourtv-boot.log
 up() { cut -d' ' -f1 /proc/uptime; }
 replaced() { grep -q " $H " /proc/mounts || { [ -f $STANDIN ] && grep -q " $(cat $STANDIN) " /proc/mounts; }; }
 pgrep -f cleanyourtv/helper.js >/dev/null || (nohup node $L/helper.js >/tmp/cleanyourtv-helper.log 2>&1 </dev/null &)
+# The watchdog (watchdog.sh, one per boot) starts the service again when it has stopped, also while LG's Home is selected (DISABLE) and
+# after an update (the replaced-Home case below leaves this script early), and if our Home stays unreachable for 60 s it falls back to
+# stock Home until the next reboot.
+pgrep -f "[c]leanyourtv/watchdog.sh" >/dev/null || (sh $L/watchdog.sh </dev/null >/dev/null 2>&1 &)
 [ -e $L/DISABLE ] && exit 0   # LG's Home is selected: only the service runs (manager, Input key picker)
 sh $L/stage-home.sh
 if replaced; then
@@ -72,6 +76,3 @@ else
     esac
   ) </dev/null >/dev/null 2>&1 &
 fi
-# Watchdog (watchdog.sh): starts the service again when it has stopped, and if it stays unreachable for 60 s, falls back to stock
-# Home until next reboot.
-pgrep -f "[c]leanyourtv/watchdog.sh" >/dev/null || (sh $L/watchdog.sh </dev/null >/dev/null 2>&1 &)
