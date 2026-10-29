@@ -124,7 +124,7 @@ gradient icon in the dock gets a tile with the same gradient ([#3](https://githu
 ## Language
 
 Menus follow the TV's language, or the one chosen in the manager app: English, Dutch, German, French, Spanish, Catalan, Russian,
-Turkish and Arabic. See [Languages](languages.md), also for adding one.
+Turkish, Arabic and Polish. See [Languages](languages.md), also for adding one.
 
 ## Themes
 
