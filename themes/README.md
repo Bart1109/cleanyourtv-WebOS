@@ -39,6 +39,14 @@ The original look: near-black, white focus, ten columns.
 
 Folder: [`classic/`](classic/)
 
+### Big Tiles
+
+Classic with large tiles matching the dock in four columns.
+
+[![Big Tiles](big-tiles/preview.jpg)](big-tiles/preview.jpg)
+
+Folder: [`big-tiles/`](big-tiles/)
+
 ### Bloom
 
 A flower wallpaper with the dock in a glass panel at the bottom. Down moves the dock up and the apps appear below it, centred.

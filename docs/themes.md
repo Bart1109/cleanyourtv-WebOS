@@ -224,6 +224,7 @@ when the focus moves down into it (Back or Up closes it); a dock at the top leav
 | `tile.border` | 0 to 0.6 | `0` | Opacity of a thin outline on every tile. |
 | `tile.ringWidth` | 0 to 10 | `4` | Width of the focus ring, in px; 0 for none. |
 | `tile.ringOffset` | 0 to 14 | `4` | Space between a tile and its focus ring, in px. |
+| `tile.iconScale` | 0.6 to 2 | `1` | Scale of the icon inside the tile. |
 | **effects** | | | |
 | `effects.glow` | 0 to 1 | `1` | Strength of the ambient glow at the top. |
 | `effects.glowColor` | `app`, `accent` | `app` | `app`: taken from the focused icon; `accent`: the accent colour. |

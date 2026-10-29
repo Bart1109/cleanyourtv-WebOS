@@ -171,6 +171,7 @@ const SCHEMA = [
   ['tile.border', 'num', [0, 0.6], 0, 'Opacity of a thin outline on every tile.'],
   ['tile.ringWidth', 'int', [0, 10], 4, 'Width of the focus ring, in px; 0 for none.'],
   ['tile.ringOffset', 'int', [0, 14], 4, 'Space between a tile and its focus ring, in px.'],
+  ['tile.iconScale', 'num', [0.6, 2], 1, 'Scale of the icon inside the tile.'],
   ['effects.glow', 'num', [0, 1], 1, 'Strength of the ambient glow at the top.'],
   ['effects.glowColor', 'enum', ['app', 'accent'], 'app', '`app`: taken from the focused icon; `accent`: the accent colour.'],
   ['effects.speed', 'num', [0, 2], 1, 'Animation speed multiplier; 0 switches the animations off.'],
@@ -449,6 +450,7 @@ function resolve(t, accent) {
     '--tile-border': String(v['tile.border']),
     '--ring-w': px(v['tile.ringWidth']),
     '--ring-off': px(v['tile.ringOffset']),
+    '--icon-s': String(v['tile.iconScale']),
     '--glow-op': String(v['effects.glow']),
     '--spd': String(v['effects.speed']),
   };
