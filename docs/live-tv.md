@@ -3,6 +3,9 @@
 Plays an IPTV playlist (M3U) from your own provider or server. It does not use LG's tuner, and the project provides no channels
 and no playlist.
 
+For the TV's own antenna or cable channels, use LG's Live TV instead: add a **TV** button (**Customise** > **Top buttons** > **Add a button** >
+**TV**, offered when the TV has that app) or open **TV** in the Inputs list or picker.
+
 ![Live TV guide](screenshots/live.jpg)
 
 ## Setting it up

@@ -723,5 +723,8 @@
  "Scenes": "Scenes",
  "Scripts": "Scripts",
  "Automations": "Automations",
- "Helpers": "Helpers"
+ "Helpers": "Helpers",
+ "TV": "TV",
+ "This plays your own playlist, not the TV’s tuner. For antenna or cable, add a TV button in Customise.": "This plays your own playlist, not the TV’s tuner. For antenna or cable, add a TV button in Customise.",
+ "Tuner": "Tuner"
 }
