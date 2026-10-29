@@ -432,6 +432,8 @@ function drawCards() {
     box.appendChild(el);
   });
   tickCards();
+  /* glass cards: the scene behind them (scenes.js) */
+  if (window.SCENES) SCENES.glassCards();
 }
 /* the clock tick: cards that change with the time redraw themselves */
 function tickCards() {
