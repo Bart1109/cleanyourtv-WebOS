@@ -112,6 +112,10 @@ run(async () => {
     'dock.tileFrost sets the frost and dock.tileFrostColor becomes its rgb tint'
   );
   ok(plain.vars['--dock-tile-frost'] === '0' && plain.vars['--dock-frost-rgb'] === '255,255,255', 'by default there is no dock-tile frost');
+  // tile.iconScale: scales the icon inside the tile
+  const scaled = themeMod.resolve(themeMod.normalize({ tile: { iconScale: 1.3 } }, 'scaled'));
+  ok(scaled.vars['--icon-s'] === '1.3', 'tile.iconScale sets the icon scale');
+  ok(plain.vars['--icon-s'] === '1', 'by default icon scale is 1');
   // shelf.dockAlign: the name follows the dock, so the dock's geometry is carried to the page; off by default, so other replies are unchanged
   const nameDock = themeMod.resolve(
     themeMod.normalize(
