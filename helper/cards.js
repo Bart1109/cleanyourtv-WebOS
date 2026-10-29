@@ -302,6 +302,8 @@ function create(ctx) {
     // the Home Assistant weather card: {id, temp, kind} -> the condition now and the forecast (kept 15 minutes)
     if (u === '/api/cards/ha/weather')
       return web.json(res, await ha.weather(String(b.id || ''), String(b.temp || ''), b.kind === undefined ? 'daily' : String(b.kind)));
+    // the launcher's Customise > Home Assistant: {domains} -> the entities to choose from
+    if (u === '/api/cards/ha/entities') return web.json(res, Object.assign({ ha: ha.ready() }, await ha.pick(b.domains)));
     web.notFound(res);
   }
   return { name: 'cards', prefix: '/api/cards/', handle, stop: stopPair };
